@@ -15,7 +15,7 @@ def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
 
     @param data: The data to encode.
     @param spike_train_count: The number of spikes in each Poisson spike train.
-    @return: A torch.ByteTensor of one Poisson spike train per element in the data.
+    @return: A torch.FloatTensor of one Poisson spike train per element in the data.
     @raise ValueError: spike_train_count is not a positive integer.
     """
     if spike_train_count < 1:
@@ -34,5 +34,5 @@ def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
         .repeat_interleave(spike_train_count)\
         .view((total_spike_train_count, spike_train_count))
     uniform_tensor = t.empty(total_spike_train_count, spike_train_count).uniform_(0, 1)
-    result = point_densities.ge(uniform_tensor)
+    result = point_densities.ge(uniform_tensor).float()
     return result

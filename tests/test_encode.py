@@ -20,13 +20,12 @@ class TestEncode(unittest.TestCase):
         self.assertEqual(expected_dimension, encoding.size(), "Encoding dimension was incorrect.")
 
         # Validate decoding back to the original example.
-        encoding_float = encoding.float()
-        decoding = encoding_float.mean(dim=1).view(example.size())
+        decoding = encoding.mean(dim=1).view(example.size())
         approximately_close = t.all(t.abs(example - decoding) < 0.3)
         self.assertTrue(approximately_close, "Decoding was not close enough to the original.")
 
         # Check Fano Factor, which can be used to measure if a process is Poisson.
-        histogram = t.histc(encoding_float.sum(dim=1))
+        histogram = t.histc(encoding.sum(dim=1))
         fano_factor = histogram.var() / histogram.mean()
         self.assertTrue(abs(fano_factor - 1) < 0.1, "Fano factor was not close enough to one.")
 
