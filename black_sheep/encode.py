@@ -7,7 +7,7 @@ import torch as t
 def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
     """
     Encodes the data into a tensor of Poisson spike trains.
-    Formally, it is a function f: Rᵐ -> {0, 1}ⁿ, where n is the spike_train_count for each data point.
+    Formally, it is a function f: R -> {0, 1}ⁿ, where n is the spike_train_count for each data point.
     A 4x4 image would be encoded into a 16xN tensor: one spike train per pixel.
     Can be made deterministic by invoking torch.manual_seed before calling.
 
@@ -29,10 +29,11 @@ def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
 
     total_spike_train_count = data.numel()
     # Typically a color pixel density, but could be anything.
-    point_densities = data\
-        .flatten()\
-        .repeat_interleave(spike_train_count)\
+    point_densities = (
+        data.flatten()
+        .repeat_interleave(spike_train_count)
         .view((total_spike_train_count, spike_train_count))
+    )
     uniform_tensor = t.empty(total_spike_train_count, spike_train_count).uniform_(0, 1)
     result = point_densities.ge(uniform_tensor).float()
     return result
