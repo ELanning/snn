@@ -10,7 +10,7 @@ def normal_weight_init(input_size: int, output_size: int) -> t.Tensor:
 
     @param input_size: The input layer size.
     @param output_size: The output layer size.
-    @return: A torch.FloatTensor of standard normal distributed weights of size input_size x output_size.
+    @return: A float tensor of standard normal distributed weights of size input_size x output_size.
     @raise ValueError: input_size or output_size is not a positive integer.
     """
     if input_size < 1:
@@ -28,7 +28,7 @@ def random_subset_mask_init(input_size: int, output_size: int) -> t.Tensor:
 
     @param input_size: The input layer size.
     @param output_size: The output layer size.
-    @return: A pruned torch.FloatTensor of size input_size x output_size,
+    @return: A bool tensor of size input_size x output_size,
         with each neuron having on average four connections.
     @raise ValueError: input_size or output_size is not a positive integer.
     """
@@ -51,7 +51,10 @@ def random_subset_mask_init(input_size: int, output_size: int) -> t.Tensor:
         raise FloatingPointError("connection_probability underflowed.")
 
     bernoulli_distribution = Bernoulli(t.tensor([connection_probability]))
-    return bernoulli_distribution.sample((input_size, output_size))
+    # squeeze with dim=2 removes the last dimension that sample adds.
+    return (
+        bernoulli_distribution.sample((input_size, output_size)).squeeze(dim=2).bool()
+    )
 
 
 default_weight_init = normal_weight_init
@@ -77,6 +80,6 @@ def create_layer(
 
     # Prune it using the result of mask_init.
     mask = mask_init(input_size, output_size)
-    weights = weights.masked_scatter_(mask)
+    weights = weights.masked_scatter_(mask, weights)
 
     return voltages, weights, spike_history

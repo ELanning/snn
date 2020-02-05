@@ -15,7 +15,7 @@ def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
 
     @param data: The data to encode.
     @param spike_train_count: The number of spikes in each Poisson spike train.
-    @return: A torch.FloatTensor of one Poisson spike train per element in the data.
+    @return: A float tensor of one Poisson spike train per element in the data.
     @raise ValueError: spike_train_count is not a positive integer.
     """
     if spike_train_count < 1:
