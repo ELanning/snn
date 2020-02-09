@@ -64,7 +64,7 @@ def update_spike_history(spike_history: List[t.Tensor], spike_train: t.Tensor) -
 reset_voltage = t.zeros_like(layer1_voltages)
 for spike_trains, label in train_data_set:
     # Reset layers.
-    # layer1_voltages = reset_voltage.clone() <--- this line is causing errors?
+    layer1_voltages = reset_voltage.clone()
     layer1_spike_history = []
 
     # Simulate the Euler method for time_step_count
