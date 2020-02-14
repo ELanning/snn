@@ -1,8 +1,22 @@
 import torch as t
 import torchvision as tv
+from black_sheep.encode import rescale_spike_train
 from black_sheep.encode_transforms import PoissonEncode
-from black_sheep.layer import create_layer, get_output_size
-from typing import List, Callable
+from black_sheep.layer import (
+    Layer,
+    create_layer,
+    get_output_size,
+    get_input_size,
+    reset,
+    append_spike_history,
+)
+from black_sheep.lif import (
+    calculate_lif_derivative,
+    calculate_lif_current,
+    calculate_spikes,
+    reset_where_spiked,
+)
+from black_sheep.time_course import dirac_pulse
 
 time_step_count = 10
 
@@ -25,95 +39,50 @@ output_layer_neuron_count = 10
 output_layer = create_layer(get_output_size(hidden_layer), output_layer_neuron_count)
 
 
-def calculate_lif_current(
-    time: int,
-    weights: t.Tensor,
-    spike_history: List[t.Tensor],
-    time_course_func: Callable[[int, List[t.Tensor]], t.Tensor],
+def train():
+    for spike_trains, label in train_data_set:
+        # Reset layers.
+        reset(hidden_layer)
+        reset(output_layer)
+
+        # Simulate the Euler method for time_step_count steps.
+        # For conceptual understanding, each time step can be considered as 1 second.
+        for time_step in range(time_step_count):
+            # Calculate hidden neuron dynamics.
+            hidden_spike_threshold = 3
+            hidden_layer_spikes = run_lif_simulation_step(
+                hidden_layer,
+                spike_trains[:, time_step],
+                time_step,
+                hidden_spike_threshold,
+            )
+
+            # Calculate output neuron dynamics.
+            output_spike_threshold = 1.5
+            output_layer_spikes = run_lif_simulation_step(
+                output_layer, hidden_layer_spikes[0], time_step, output_spike_threshold
+            )
+
+
+# Mutates the passed in layers voltages.
+def run_lif_simulation_step(
+    layer: Layer, spike_train: t.Tensor, time_step: int, spike_threshold: float
 ) -> t.Tensor:
-    time_course_result = time_course_func(time, spike_history)
-    current_sum = t.sum(weights * time_course_result, dim=0)
-    return current_sum
+    rescaled_spike_train = rescale_spike_train(spike_train, get_output_size(layer))
+    append_spike_history(layer.spike_history, rescaled_spike_train)
+
+    current = calculate_lif_current(
+        time_step, layer.weights, layer.spike_history, dirac_pulse
+    )
+    derivative = calculate_lif_derivative(layer.voltages, current)
+    voltage_gain = layer.voltages + derivative
+    layer.voltages += voltage_gain
+
+    spikes = calculate_spikes(layer, spike_threshold)
+    reset_where_spiked(layer, spike_threshold)
+
+    return spikes
 
 
-def calculate_lif_derivative(
-    membrane_potential: t.Tensor, input_current: t.Tensor
-) -> t.Tensor:
-    return -1 * membrane_potential + input_current
-
-
-def dirac_pulse(time: int, spike_history: List[t.Tensor]) -> t.Tensor:
-    if time > len(spike_history):
-        raise ValueError(
-            "time must be less than or equal to spike_history length."
-            f"Received time: {time}\n"
-            f"spike_history length: {len(spike_history)}"
-        )
-
-    return spike_history[time].eq(1).float()
-
-
-def rescale_spike_train(spike_train: t.Tensor, output_size: int) -> t.Tensor:
-    # Rescale spike_train to output_size.
-    # Useful for broadcasting the spike train to n output neurons.
-    spike_train_length = spike_train.numel()
-    return spike_train.repeat(output_size).view((spike_train_length, output_size))
-
-
-def update_spike_history(spike_history: List[t.Tensor], spike_train: t.Tensor) -> None:
-    # TODO: change spike_history to a layer so can check for dimensions, or make it Layer or List.
-    # TODO: Rename to append_spike_history?
-    spike_history.append(spike_train)
-
-
-zeros = t.zeros_like(hidden_layer.voltages)
-ones = t.ones_like(hidden_layer.voltages)
-for spike_trains, label in train_data_set:
-    # Reset layers.
-    hidden_layer.voltages = zeros.clone()
-    hidden_layer.spike_history = []
-    output_layer.voltages = t.zeros_like(output_layer.voltages).clone()
-    output_layer.spike_history = []
-
-    # Simulate the Euler method for time_step_count steps.
-    # For conceptual understanding, each time step can be considered as 1 second.
-    for i in range(time_step_count):
-        # Calculate hidden neuron dynamics.
-        input_spike_train_step = rescale_spike_train(
-            spike_trains[:, i], hidden_layer_neuron_count
-        )
-        update_spike_history(hidden_layer.spike_history, input_spike_train_step)
-
-        current = calculate_lif_current(
-            i, hidden_layer.weights, hidden_layer.spike_history, dirac_pulse
-        )
-        derivative = calculate_lif_derivative(hidden_layer.voltages, current)
-        voltage_gain = hidden_layer.voltages + derivative
-        hidden_layer.voltages += voltage_gain
-
-        spike_threshold = 3
-        spikes = zeros.clone().where(hidden_layer.voltages < spike_threshold, ones)
-        hidden_layer.voltages = hidden_layer.voltages.where(
-            hidden_layer.voltages < spike_threshold, zeros
-        )
-
-        # Calculate output neuron dynamics.
-        output_spike_train_step = rescale_spike_train(
-            spikes[0], output_layer_neuron_count
-        )
-        update_spike_history(output_layer.spike_history, output_spike_train_step)
-
-        current = calculate_lif_current(
-            i, output_layer.weights, output_layer.spike_history, dirac_pulse
-        )
-        derivative = calculate_lif_derivative(output_layer.voltages, current)
-        voltage_gain = output_layer.voltages + derivative
-        output_layer.voltages += voltage_gain
-
-        spike_threshold = 1.5
-        spikes = t.zeros_like(output_layer.voltages).where(
-            output_layer.voltages < spike_threshold, t.ones_like(output_layer.voltages)
-        )
-        output_layer.voltages = output_layer.voltages.where(
-            output_layer.voltages < spike_threshold, t.zeros_like(output_layer.voltages)
-        )
+if __name__ == "__main__":
+    train()
