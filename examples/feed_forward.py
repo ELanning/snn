@@ -1,7 +1,7 @@
 import torch as t
 import torchvision as tv
-from black_sheep.encode.poisson_encode import rescale_spike_train
-from black_sheep.encode.poisson_encode_transform import PoissonEncode
+from black_sheep.encode import rescale_spike_train, PoissonEncode
+from black_sheep.weight import normal_weight_init
 from black_sheep.layer import (
     Layer,
     create_layer,
@@ -14,7 +14,7 @@ from black_sheep.lif import (
     calculate_spikes,
     reset_where_spiked,
 )
-from black_sheep.time_course.dirac_pulse import dirac_pulse
+from black_sheep.time_course import dirac_pulse
 
 time_step_count = 10
 
@@ -34,7 +34,15 @@ hidden_layer = create_layer(spike_train_size, hidden_layer_neuron_count)
 
 # One output neuron per class label (numbers zero to nine).
 output_layer_neuron_count = 10
-output_layer = create_layer(hidden_layer.output_size, output_layer_neuron_count)
+
+
+def fully_connected_weight_init(input_size, output_size):
+    return normal_weight_init(input_size, output_size, output_size)
+
+
+output_layer = create_layer(
+    hidden_layer.output_size, output_layer_neuron_count, fully_connected_weight_init
+)
 
 
 def train():
