@@ -1,7 +1,3 @@
-r"""
-Module for encoding tensors into formats consumable by spiking neural networks.
-Also includes functions for working with spike trains.
-"""
 import torch as t
 
 
@@ -38,10 +34,3 @@ def poisson_encode(data: t.Tensor, spike_train_count: int) -> t.Tensor:
     uniform_tensor = t.empty(total_spike_train_count, spike_train_count).uniform_(0, 1)
     result = point_densities.ge(uniform_tensor).float()
     return result
-
-
-def rescale_spike_train(spike_train: t.Tensor, output_size: int) -> t.Tensor:
-    # Rescale spike_train to output_size.
-    # Useful for broadcasting the spike train to n output neurons.
-    spike_train_length = spike_train.numel()
-    return spike_train.repeat(output_size).view((spike_train_length, output_size))

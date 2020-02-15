@@ -1,9 +1,9 @@
 """
-Transform wrappers for each encoding in the encode module.
+Transform wrapper for poisson_encode
 Allows ease of use when using transforms.compose.
 """
 import torch as t
-from .encode import poisson_encode
+from black_sheep.encode.poisson_encode import poisson_encode
 
 
 class PoissonEncode:
@@ -15,4 +15,3 @@ class PoissonEncode:
 
     def __call__(self, data: t.Tensor):
         return poisson_encode(data, self.spike_train_count)
-
