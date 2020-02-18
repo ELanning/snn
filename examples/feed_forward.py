@@ -16,6 +16,11 @@ from black_sheep.lif import (
 )
 from black_sheep.time_course import dirac_pulse
 
+
+def fully_connected_weight_init(input_size, output_size):
+    return normal_weight_init(input_size, output_size, connection_count=output_size)
+
+
 time_step_count = 10
 
 # Normalize and encode data into spike trains.
@@ -34,12 +39,6 @@ hidden_layer = create_layer(spike_train_size, hidden_layer_neuron_count)
 
 # One output neuron per class label (numbers zero to nine).
 output_layer_neuron_count = 10
-
-
-def fully_connected_weight_init(input_size, output_size):
-    return normal_weight_init(input_size, output_size, output_size)
-
-
 output_layer = create_layer(
     hidden_layer.output_size, output_layer_neuron_count, fully_connected_weight_init
 )
@@ -64,7 +63,7 @@ def train():
             )
 
             # Calculate output neuron dynamics.
-            output_spike_threshold = 1.5
+            output_spike_threshold = 4
             output_layer_spikes = run_lif_simulation_step(
                 output_layer, hidden_layer_spikes[0], time_step, output_spike_threshold
             )
