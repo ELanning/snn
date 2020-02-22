@@ -1,7 +1,8 @@
 import torch as t
 import torchvision as tv
-from black_sheep.encode import rescale_spike_train, PoissonEncode
-from black_sheep.weight import normal_weight_init
+from typing import List
+from black_sheep.encode import PoissonEncode
+from black_sheep.weight import xavier_normal_weight_init
 from black_sheep.layer import (
     Layer,
     create_layer,
@@ -15,11 +16,7 @@ from black_sheep.lif import (
     reset_where_spiked,
 )
 from black_sheep.time_course import dirac_pulse
-
-
-def fully_connected_weight_init(input_size, output_size):
-    return normal_weight_init(input_size, output_size, connection_count=output_size)
-
+from black_sheep.learn import calculate_stdp
 
 time_step_count = 10
 
@@ -34,50 +31,81 @@ train_data_set = tv.datasets.MNIST(
 
 [spike_train_size, _] = train_data_set[0][0].shape
 
+
+def mostly_positive_xavier_normal(input_size, output_size):
+    return xavier_normal_weight_init(input_size, output_size, positive_percent=0.9)
+
+
 hidden_layer_neuron_count = 64
-hidden_layer = create_layer(spike_train_size, hidden_layer_neuron_count)
+hidden_layer = create_layer(
+    spike_train_size, hidden_layer_neuron_count, mostly_positive_xavier_normal
+)
 
 # One output neuron per class label (numbers zero to nine).
 output_layer_neuron_count = 10
 output_layer = create_layer(
-    hidden_layer.output_size, output_layer_neuron_count, fully_connected_weight_init
+    hidden_layer.output_size, output_layer_neuron_count, mostly_positive_xavier_normal
 )
 
 
 def train():
     for spike_trains, label in train_data_set:
         # Reset layers.
+        input_spike_history: List[t.Tensor] = []
+        hidden_weight_update = t.zeros_like(hidden_layer.weights)
+        output_weight_update = t.zeros_like(output_layer.weights)
         reset(hidden_layer)
         reset(output_layer)
 
         # Simulate the Euler method for time_step_count steps.
         # For conceptual understanding, each time step can be considered as 1 second.
         for time_step in range(time_step_count):
+            append_spike_history(input_spike_history, spike_trains[:, time_step])
+
             # Calculate hidden neuron dynamics.
-            hidden_spike_threshold = 3
+            hidden_spike_threshold = 15
             hidden_layer_spikes = run_lif_simulation_step(
-                hidden_layer,
-                spike_trains[:, time_step],
-                time_step,
-                hidden_spike_threshold,
+                hidden_layer, input_spike_history, time_step, hidden_spike_threshold,
             )
+            append_spike_history(hidden_layer, hidden_layer_spikes.squeeze())
 
             # Calculate output neuron dynamics.
             output_spike_threshold = 4
             output_layer_spikes = run_lif_simulation_step(
-                output_layer, hidden_layer_spikes[0], time_step, output_spike_threshold
+                output_layer,
+                hidden_layer.spike_history,
+                time_step,
+                output_spike_threshold,
             )
+            append_spike_history(output_layer, output_layer_spikes.squeeze())
+
+            # Update weights with the standard STDP algorithm.
+            window_size = 3
+            hidden_weight_update += calculate_stdp(
+                hidden_layer.weights,
+                input_spike_history,
+                hidden_layer.spike_history,
+                window_size,
+            )
+            hidden_layer.weights += hidden_weight_update
+            output_weight_update += calculate_stdp(
+                output_layer.weights,
+                hidden_layer.spike_history,
+                output_layer.spike_history,
+                window_size,
+            )
+            output_layer.weights += output_weight_update
 
 
 # Mutates the passed in layers voltages.
 def run_lif_simulation_step(
-    layer: Layer, spike_train: t.Tensor, time_step: int, spike_threshold: float
+    layer: Layer,
+    previous_layer_spike_history: List[t.Tensor],
+    time_step: int,
+    spike_threshold: float,
 ) -> t.Tensor:
-    rescaled_spike_train = rescale_spike_train(spike_train, layer.output_size)
-    append_spike_history(layer.spike_history, rescaled_spike_train)
-
     current = calculate_lif_current(
-        time_step, layer.weights, layer.spike_history, dirac_pulse
+        time_step, layer.weights, previous_layer_spike_history, dirac_pulse
     )
     derivative = calculate_lif_derivative(layer.voltages, current)
     voltage_gain = layer.voltages + derivative

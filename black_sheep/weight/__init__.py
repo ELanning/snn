@@ -1,1 +1,4 @@
 from .normal_weight_init import normal_weight_init
+from .uniform_weight_init import uniform_weight_init
+from .xavier_normal_weight_init import xavier_normal_weight_init
+from .xavier_uniform_weight_init import xavier_uniform_weight_init

@@ -70,7 +70,7 @@ def append_spike_history(
     spike_history: Union[Layer, List[t.Tensor]], spike_train: t.Tensor
 ) -> None:
     if isinstance(spike_history, Layer):
-        if spike_history.voltages.shape != spike_train.shape:
+        if spike_history.voltages.squeeze().shape != spike_train.shape:
             warnings.warn(
                 f"voltage shape of {spike_history.voltages.shape} differed from spike_train shape of {spike_train.shape}."
             )
