@@ -17,11 +17,13 @@ def calculate_stdp(
         )
 
     weight_updates = t.zeros_like(weights)
+
     # Calculations can be skipped if there is not enough spike history.
-    if input_history_len <= 1 or output_history_len <= 1:
+    if input_history_len <= 1:
         return weight_updates
 
-    last_output_spike = output_history_len * output_spike_history[-1]
+    time_multiplier = output_history_len
+    last_output_spike = time_multiplier * output_spike_history[-1]
     if last_output_spike.max() != 0:
         for index, input_spike in enumerate(reversed(input_spike_history)):
             # Latest input spike can be skipped.
@@ -42,7 +44,8 @@ def calculate_stdp(
                 weights, time_multiplier * input_spike, last_output_spike
             )
 
-    last_input_spike = input_history_len * input_spike_history[-1]
+    time_multiplier = input_history_len
+    last_input_spike = time_multiplier * input_spike_history[-1]
     if last_input_spike.max() != 0:
         for index, output_spike in enumerate(reversed(output_spike_history)):
             # Latest output spike can be skipped.
@@ -71,7 +74,7 @@ def positive_window_function(
 ) -> t.Tensor:
     difference, mask = get_difference(input_spike_train, output_spike_train)
     max_weights = t.empty(weights.shape).fill_(3)
-    result = 0.1 * (max_weights - weights) * t.exp(-difference / 10)
+    result = 0.01 * (max_weights - weights) * t.exp(-difference / 10)
     masked_result = t.zeros_like(result).masked_scatter(mask, result)
     return masked_result
 
@@ -80,7 +83,7 @@ def negative_window_function(
     weights: t.Tensor, input_spike_train: t.Tensor, output_spike_train: t.Tensor,
 ) -> t.Tensor:
     difference, mask = get_difference(input_spike_train, output_spike_train)
-    result = 0.1 * weights * t.exp(difference / 10)
+    result = -0.0001 * weights * t.exp(difference / 10)
     masked_result = t.zeros_like(result).masked_scatter(mask, result)
     return masked_result
 

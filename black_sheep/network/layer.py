@@ -3,8 +3,7 @@ Module for creating and manipulating layers of a spiking neural network.
 """
 import torch as t
 import warnings
-from typing import Callable, List, Union, Optional
-from .weight import normal_weight_init
+from typing import List, Union
 
 
 class Layer:
@@ -61,7 +60,7 @@ class Layer:
         return iter([self.voltages, self.weights, self.spike_history])
 
 
-def reset(layer: Layer):
+def reset_(layer: Layer) -> None:
     layer.voltages.fill_(0)
     layer.spike_history = []
 
@@ -75,25 +74,11 @@ def append_spike_history(
                 f"voltage shape of {spike_history.voltages.shape} differed from spike_train shape of {spike_train.shape}."
             )
         spike_history.spike_history.append(spike_train)
-
-    if isinstance(spike_history, list):
+    elif isinstance(spike_history, list):
         spike_history.append(spike_train)
 
 
-# Defaults may change in the future. Do not expect them to be static.
-def default_weight_init(input_size: int, output_size: int) -> t.Tensor:
-    return normal_weight_init(input_size, output_size, connection_count=4)
-
-
-default_connection_init = None
-
-
-def create_layer(
-    input_size: int,
-    output_size: int,
-    weight_init: Callable[[int, int], t.Tensor] = default_weight_init,
-    mask_init: Optional[Callable[[int, int], t.Tensor]] = default_connection_init,
-) -> Layer:
+def create_layer(input_size: int, output_size: int,) -> Layer:
     if input_size < 1:
         raise ValueError("input_size must be a positive integer.")
     if output_size < 1:
@@ -101,13 +86,6 @@ def create_layer(
 
     voltages = t.zeros((1, output_size))
     spike_history = []
-
-    # Initialize dense weight matrix.
-    weights = weight_init(input_size, output_size)
-
-    # Prune it using the result of mask_init.
-    if mask_init is not None:
-        mask = mask_init(input_size, output_size)
-        weights = t.zeros_like(weights).masked_scatter_(mask, weights)
+    weights = t.empty((input_size, output_size))
 
     return Layer(voltages, weights, spike_history)

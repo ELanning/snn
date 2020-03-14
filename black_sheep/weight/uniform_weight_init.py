@@ -9,7 +9,7 @@ def uniform_weight_init(
     output_size: int,
     min_bounds: float = 0.0,
     max_bounds: float = 1.0,
-    positive_percent: Optional[float] = None,
+    positive_ratio: Optional[float] = None,
 ) -> t.Tensor:
     """
     Creates a weight matrix using the uniform distribution.
@@ -18,13 +18,13 @@ def uniform_weight_init(
     @param output_size: The output layer size.
     @param min_bounds: The minimum of the uniform distribution. Defaults to 0.0
     @param max_bounds: The maximum of the uniform distribution. Defaults to 1.0
-    @param positive_percent: The rough percentage of connections that will be positive.
+    @param positive_ratio: The approximate ratio of connections that will be positive.
     @return: A float tensor of uniform distributed weights of size input_size x output_size.
     @raise ValueError:
         input_size is not a positive integer.
         output_size is not a positive integer.
         min_bounds is greater than max_bounds.
-        positive_percent is not None or between zero and one.
+        positive_ratio is not None or between zero and one.
     """
     if input_size < 1:
         raise ValueError("input_size must be a positive integer.")
@@ -32,18 +32,18 @@ def uniform_weight_init(
         raise ValueError("output_size must be a positive integer.")
     if min_bounds > max_bounds:
         raise ValueError("min_bounds must not be greater than max_bounds.")
-    if positive_percent is not None:
-        if positive_percent > 1 or 0 > positive_percent:
+    if positive_ratio is not None:
+        if positive_ratio > 1 or 0 > positive_ratio:
             raise ValueError(
-                "positive_percent must be None, or must be between zero and one."
+                "positive_ratio must be None, or must be between zero and one."
             )
 
     result = t.empty((input_size, output_size))
     uniform_(result, a=min_bounds, b=max_bounds)
 
     # TODO: test this.
-    if positive_percent is not None:
-        bernoulli_distribution = Bernoulli(t.tensor([positive_percent]))
+    if positive_ratio is not None:
+        bernoulli_distribution = Bernoulli(t.tensor([positive_ratio]))
         mask = bernoulli_distribution.sample((input_size, output_size)).squeeze().bool()
         result.abs_()
         result = result.where(mask, -result)

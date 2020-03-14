@@ -1,11 +1,5 @@
 import unittest
-import torch as t
-from black_sheep.layer import create_layer
-
-arbitrary_number = 333
-t.manual_seed(arbitrary_number)
-t.backends.cudnn.deterministic = True
-t.backends.cudnn.benchmark = False
+from black_sheep.network.layer import create_layer
 
 
 class TestLayer(unittest.TestCase):
