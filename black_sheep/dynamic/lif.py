@@ -1,5 +1,5 @@
 r"""
-Module for simulating the dynamic of a leaky integrate and fire spiking neural network.
+Module for simulating the dynamics of a leaky integrate and fire spiking neural network.
 """
 import torch as t
 from typing import Callable, List
