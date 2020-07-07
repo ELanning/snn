@@ -7,15 +7,13 @@ from typing import Callable, List
 
 def calculate_lif_current(
     time: int,
-    weights: t.Tensor,  # TODO Switch to a Layer struct?
-    spike_history: List[
-        t.Tensor
-    ],  # TODO Change name so people don't get confused thinking this is the layers spike history.
+    weights: t.Tensor,
+    spike_history: List[t.Tensor],
     time_course_func: Callable[[int, List[t.Tensor]], t.Tensor],
 ) -> t.Tensor:
-    time_course_result = time_course_func(time, spike_history).squeeze_()
+    time_course_result = time_course_func(time, spike_history)
 
-    # TODO: Name this stuff better.
+    # Rescale the time course function result into a dimension that can be multiplied by the weights.
     input_dimension = weights.shape[1]
     output_dimension = time_course_result.shape[0]
     rescaled_time_course_result = time_course_result.repeat(input_dimension).view(

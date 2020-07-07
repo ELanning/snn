@@ -18,7 +18,9 @@ class TestDynamic(unittest.TestCase):
         constant_input_spike_history = []
 
         for time_step in range(4):
-            constant_input_spike_history.append(t.tensor([1]))
+            constant_input_spike_history.append(
+                t.tensor([1])
+            )  # One indicates the neuron spiked.
             current = calculate_lif_current(
                 time_step, layer.weights, constant_input_spike_history, dirac_pulse
             )

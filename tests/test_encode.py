@@ -12,11 +12,17 @@ class TestEncode(unittest.TestCase):
     def test_poisson_encode(self):
         example = t.empty(3, 3).uniform_(0, 1)
         # A reasonably high number was chosen so that the decoder can properly reconstruct the input.
-        time_slice_count = 100
-        encoding = poisson_encode(example, spike_train_count=time_slice_count)
+        time_slice_count = 120
+        spike_train_generator = poisson_encode(
+            example, spike_train_count=time_slice_count
+        )
+        # Destructure as index is not needed.
+        encoding, _ = next(spike_train_generator)
+        for spike_train, _ in spike_train_generator:
+            encoding = t.cat([encoding, spike_train], dim=0)
 
         # Validate output dimension.
-        expected_dimension = (example.numel(), time_slice_count)
+        expected_dimension = (time_slice_count, example.numel())
         self.assertEqual(
             expected_dimension,
             encoding.shape,
@@ -25,14 +31,14 @@ class TestEncode(unittest.TestCase):
         )
 
         # Validate decoding back to the original example.
-        decoding = encoding.mean(dim=1).view(example.shape)
+        decoding = encoding.mean(dim=0).view(example.shape)
         approximately_close = t.all(t.abs(example - decoding) < 0.3)
         self.assertTrue(
             approximately_close, "decoding must be approximately equal to the original."
         )
 
         # Check Fano Factor, which can be used to measure if a process is Poisson.
-        histogram = t.histc(encoding.sum(dim=1))
+        histogram = t.histc(encoding.sum(dim=0))
         fano_factor = histogram.var() / histogram.mean()
         self.assertTrue(
             abs(fano_factor - 1) < 0.1,
@@ -45,8 +51,10 @@ class TestEncode(unittest.TestCase):
         empty_spike_train_count = 0
 
         self.assertRaises(
-            ValueError, poisson_encode, t.empty(1), negative_spike_train_count
+            ValueError,
+            lambda: next(poisson_encode(t.empty(1), negative_spike_train_count)),
         )
         self.assertRaises(
-            ValueError, poisson_encode, t.empty(1), empty_spike_train_count
+            ValueError,
+            lambda: next(poisson_encode(t.empty(1), empty_spike_train_count)),
         )
